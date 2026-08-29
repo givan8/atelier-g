@@ -25,9 +25,20 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover - depends on interpreter
+    try:
+        import tomli as tomllib  # pip install tomli
+    except ModuleNotFoundError:
+        sys.exit(
+            "evals/run.py needs TOML support: Python 3.11+ (stdlib tomllib), "
+            "or `pip install tomli` on 3.10 and earlier. "
+            f"This interpreter is {sys.version.split()[0]}."
+        )
 
 ROOT = Path(__file__).resolve().parent.parent
 CASES = ROOT / "evals" / "cases"
