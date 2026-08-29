@@ -70,15 +70,19 @@ Rules for the prose:
 
 Every behavioural change needs an eval case in `evals/cases/`:
 
-```yaml
-# evals/cases/review-code-flags-swallowed-error.yaml
-skill: review-code
-prompt: |
-  Review this diff:
-  ...
-  + try { save(x) } catch (e) {}
-expect_contains: ["swallow", "error"]
-expect_absent: ["looks good to me"]
+```toml
+# evals/cases/review-code-flags-swallowed-error.toml
+skill = "review-code"
+rationale = "Reviews kept approving empty catch blocks; house rule 6 says fail loudly."
+
+prompt = """
+Review this diff:
+...
++ try { save(x) } catch (e) {}
+"""
+
+expect_contains = ["swallow", "error"]
+expect_absent = ["looks good to me"]
 ```
 
 Then:
