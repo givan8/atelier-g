@@ -10,7 +10,8 @@ from app.health import health
 
 
 class Handler(BaseHTTPRequestHandler):
-    def do_GET(self) -> None:  # noqa: N802 - stdlib interface
+    # Name fixed by BaseHTTPRequestHandler's dispatch, not by our own style.
+    def do_GET(self) -> None:
         if self.path == "/health":
             self._json(200, {"status": health().status, "uptimeSeconds": health().uptime_seconds})
             return
