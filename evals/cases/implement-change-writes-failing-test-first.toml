@@ -1,0 +1,23 @@
+skill = "implement-change"
+rationale = """
+Bug fixes were arriving with a test written after the fix, which proves nothing.
+The skill requires reproducing the failure first and watching it fail.
+"""
+
+prompt = """
+Fix this bug.
+
+Issue #412: "Signup accepts an email that is already registered when the existing
+account was created with different capitalisation. ada@Example.com can sign up
+again as ada@example.com."
+
+Describe exactly how you will proceed, in order, before writing any code.
+"""
+
+expect_matches = [
+  "(test|reproduc).{0,80}(first|before)",
+  "watch it fail|see it fail|fails? (before|against)",
+  "branch",
+]
+expect_contains = ["test"]
+expect_absent = ["ship it", "no test needed"]

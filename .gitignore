@@ -1,0 +1,7 @@
+evals/outputs/
+prompts/
+__pycache__/
+*.py[cod]
+.DS_Store
+*.log
+.env

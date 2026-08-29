@@ -1,0 +1,21 @@
+skill = "plan-feature"
+rationale = """
+Plans were being written straight from the request, inventing interfaces that did
+not exist in the codebase. The skill requires reading the code first and naming
+the constraints found.
+"""
+
+prompt = """
+Plan this change. You have the repository available to read.
+
+"We need soft deletes for customer records. Right now DELETE /customers/{id}
+removes the row. Support wants to be able to restore an account within 30 days."
+"""
+
+expect_contains = ["out of scope", "risk"]
+expect_matches = [
+  "read|inspect|look at|examine.{0,40}(code|schema|model|migration|tests)",
+  "irreversible|migration|data loss|escalat",
+  "step 1|1\\.",
+]
+expect_absent = ["here is the complete implementation"]

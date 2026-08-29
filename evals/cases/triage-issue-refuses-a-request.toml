@@ -1,0 +1,26 @@
+skill = "triage-issue"
+rationale = """
+Everything was being accepted into the backlog, so the backlog stopped meaning
+anything. Triage must be willing to decline, with a reason, and must look for the
+underlying need rather than building the proposed solution.
+"""
+
+prompt = """
+Triage this issue.
+
+Title: "Add a CSV export button to the dashboard"
+Body: "I need to send the weekly numbers to my manager every Monday. Can you add a
+button that downloads the dashboard as CSV? Ideally also XLSX and PDF."
+
+Context you have: the product already emails a scheduled weekly summary to any
+address you configure, documented in docs/reports.md. Two other users have asked
+for CSV export in the past year.
+"""
+
+expect_matches = [
+  "underlying|actually trying|real (problem|need)|what.{0,20}achieve",
+  "scheduled|existing|already|documented",
+  "won.?t do|decline|not doing|close|duplicate|documentation",
+]
+expect_contains = ["reason"]
+expect_absent = ["added to the backlog", "great idea"]

@@ -1,0 +1,71 @@
+name: skills
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate skill structure
+        run: ./scripts/validate-skills.py
+
+      - name: Check generated harness directories are in sync
+        run: ./scripts/sync-harnesses.sh --check
+
+      - name: Load every eval case
+        run: ./evals/run.py
+
+  templates:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        template: [service-ts, service-py]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: matrix.template == 'service-ts'
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scaffold a project from the template
+        run: ./scripts/new-project.sh probe-${{ matrix.template }} --template ${{ matrix.template }} --dest "$RUNNER_TEMP"
+
+      - name: Placeholders were all substituted
+        run: |
+          if grep -rq '{{' "$RUNNER_TEMP/probe-${{ matrix.template }}"; then
+            echo "unsubstituted placeholder left in the scaffold:" >&2
+            grep -rn '{{' "$RUNNER_TEMP/probe-${{ matrix.template }}" >&2
+            exit 1
+          fi
+
+      - name: Tests pass in a fresh scaffold (TypeScript)
+        if: matrix.template == 'service-ts'
+        working-directory: ${{ runner.temp }}/probe-service-ts
+        run: |
+          npm install
+          npm run typecheck
+          npm test
+
+      - name: Tests pass in a fresh scaffold (Python)
+        if: matrix.template == 'service-py'
+        working-directory: ${{ runner.temp }}/probe-service-py
+        run: |
+          pip install -e ".[dev]"
+          ruff check .
+          mypy
+          pytest

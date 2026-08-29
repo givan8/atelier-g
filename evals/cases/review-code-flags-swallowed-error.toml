@@ -1,0 +1,30 @@
+skill = "review-code"
+rationale = """
+Reviews were approving empty catch blocks because the diff was small and the tests
+passed. House rule 6 requires failing loudly; the review skill must catch this.
+"""
+
+prompt = """
+Review this diff for the billing service.
+
+--- a/billing/profile.py
++++ b/billing/profile.py
+@@ -14,7 +14,11 @@ def save_profile(user):
+-    db.write(user)
+-    return user
++    try:
++        db.write(user)
++    except Exception:
++        pass
++    return user
+
+PR description: "Make save_profile more robust — it was throwing on transient DB
+errors and taking down the request."
+"""
+
+expect_contains = ["swallow", "error"]
+expect_absent = ["looks good to me", "lgtm"]
+expect_matches = [
+  "blocking|should fix",
+  "silent|lost|hidden|caller|returns success|no indication",
+]
