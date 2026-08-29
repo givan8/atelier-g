@@ -88,8 +88,47 @@ sync_claude_commands() {
   emit triage      triage-issue     "Decide what to do with an inbound issue"
   emit adr         write-adr        "Record an architecture decision"
   emit new-project scaffold-project "Stand up a new repository from a template"
+  emit route        route-request    "Route a request to the right delivery path"
+  emit issues       manage-issues    "Write, pick up or close issues correctly"
 
-  echo "  .claude/commands/  <- 8 commands"
+  echo "  .claude/commands/  <- 10 commands"
+}
+
+# Roles become subagents, so each one runs with its own context.
+# access: is translated here — the charters themselves name no tools (ADR-0002).
+sync_claude_agents() {
+  local out=".claude/agents"
+  rm -rf "$out"
+  mkdir -p "$out"
+
+  local count=0
+  for dir in roles/*/; do
+    local name access
+    name="$(basename "$dir")"
+    [[ -f "$dir/ROLE.md" ]] || continue
+
+    access="$(sed -n 's/^access:[[:space:]]*//p' "$dir/ROLE.md" | head -1)"
+
+    {
+      # Frontmatter first: a harness only parses it at the top of the file.
+      sed -n '1,/^---$/p' "$dir/ROLE.md" | sed '$d' | grep -v '^access:'
+      case "$access" in
+        read-only) printf 'disallowedTools: Write, Edit, NotebookEdit\n' ;;
+      esac
+      printf -- '---\n\n'
+      banner_text "roles/$name/ROLE.md"
+      printf '\n\n'
+      printf 'You are acting as the %s. Follow this charter exactly.\n\n' "$name"
+      printf 'Read `docs/house-rules.md` before you act; it binds you as it binds\n'
+      printf 'everyone. Your charter may add constraints, never relax them.\n\n'
+      # Body, with root-relative links fixed for the extra directory level.
+      awk 'seen>=2 { print } /^---$/ { seen++ }' "$dir/ROLE.md" |
+        sed -e 's|](\.\./\.\./|](../../|g' -e 's|](\.\./|](../../roles/|g'
+    } > "$out/$name.md"
+    count=$((count + 1))
+  done
+
+  echo "  .claude/agents/  <- $count roles"
 }
 
 if [[ $CHECK -eq 1 ]]; then
@@ -102,6 +141,7 @@ fi
 echo "syncing from skills/ …"
 sync_claude
 sync_claude_commands
+sync_claude_agents
 
 if [[ $CHECK -eq 1 ]]; then
   if ! git diff --quiet -- .claude; then

@@ -5,20 +5,25 @@ https://github.com/givan8/atelier-g
 
 ## Before you change anything here
 
-1. Read `atelier-g/docs/house-rules.md`. It is binding.
-2. Read the skill that covers your task from `atelier-g/skills/`:
+1. **Route the request first** with `atelier-g/skills/route-request/SKILL.md`.
+   Anything that changes behaviour here and is not trivial runs the enhancement
+   pipeline: business analyst, then implementation, then QA, then verification and
+   your signoff. Say which path you took.
+2. Read `atelier-g/docs/house-rules.md`. It is binding.
+3. Read the skill that covers your task from `atelier-g/skills/`:
 
    | Task | Skill |
    |---|---|
+   | Routing any request | `route-request` |
+   | Writing or closing an issue | `manage-issues` |
    | Scoping a request | `plan-feature` |
    | Writing code | `implement-change` |
    | Tests | `write-tests` |
    | Reviewing a diff | `review-code` |
    | Opening a PR | `ship-pr` |
-   | An inbound issue | `triage-issue` |
    | A decision worth keeping | `write-adr` |
 
-3. Read this project's `README.md` and `docs/adr/` before designing anything. The
+4. Read this project's `README.md` and `docs/adr/` before designing anything. The
    ADRs explain why this project is shaped the way it is; changing something an
    ADR decided requires a new ADR, not a quiet edit.
 

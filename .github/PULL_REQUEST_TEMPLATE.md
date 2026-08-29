@@ -17,8 +17,8 @@
 
 ---
 
-- [ ] `./scripts/validate-skills.py` passes
+- [ ] `./scripts/validate.py` passes
 - [ ] `./scripts/sync-harnesses.sh` has been run and `.claude/` is committed
 - [ ] Behavioural changes have an eval case in `evals/cases/`
-- [ ] No harness-specific syntax in `skills/` (ADR-0002)
+- [ ] No harness-specific syntax in `skills/` or `roles/` (ADR-0002)
 - [ ] Decisions worth keeping are in `docs/adr/`

@@ -47,7 +47,7 @@ would be. We accept that: portability and reviewability are worth more than the
 last few percent.
 
 **Also bad.** The rule needs enforcement, or it erodes one convenient exception at
-a time. `scripts/validate-skills.py` fails on a denylist of harness-specific
+a time. `scripts/validate.py` fails on a denylist of harness-specific
 markers, which is crude and will need updating.
 
 ## Alternatives considered

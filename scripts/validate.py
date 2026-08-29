@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Structural validation for the atelier-g skill library.
+"""Structural validation for the atelier-g skill and role libraries.
 
-Checks every skills/<name>/SKILL.md for the properties we can verify
-mechanically. Behaviour is checked separately by evals/run.py.
+Checks skills/<name>/SKILL.md and roles/<name>/ROLE.md for the properties we can
+verify mechanically. Behaviour is checked separately by evals/run.py.
 
 Standard library only, by design — see CLAUDE.md.
 
 Usage:
-    ./scripts/validate-skills.py            # validate all skills
-    ./scripts/validate-skills.py review-code
+    ./scripts/validate.py                  # everything
+    ./scripts/validate.py review-code      # named skills or roles
+    ./scripts/validate.py --skills-only
 """
 
 from __future__ import annotations
@@ -19,11 +20,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SKILLS = ROOT / "skills"
+ROLES = ROOT / "roles"
 
 MAX_LINES = 150
 MAX_DESCRIPTION_WORDS = 60
-REQUIRED_KEYS = ("name", "description")
-OPTIONAL_KEYS = ("when_to_use", "version")
+ACCESS_VALUES = ("read-only", "read-write")
 
 # Harness-specific markers. See docs/adr/0002-harness-neutral-skills.md.
 # Crude by necessity: this is a tripwire, not a parser.
@@ -32,9 +33,8 @@ FORBIDDEN = {
     r"\bcursor\b": "names a specific harness",
     r"\bcopilot\b": "names a specific harness",
     r"^\s*/[a-z][a-z-]{2,}\s*$": "looks like a slash command",
-    (
-        r"</?(?:function_calls|invoke|parameter|antml|thinking|system-reminder|tool_use)\b"
-    ): "harness-specific markup",
+    r"</?(?:function_calls|invoke|parameter|antml|thinking|system-reminder|tool_use)\b":
+        "harness-specific markup",
     r"\bthink step by step\b": "model-specific prompting",
     r"\byou are an? (?:expert|helpful|world-class)\b": "model-specific prompting",
     r"\b(?:gpt-[0-9]|claude-[0-9]|llama-[0-9]|gemini-[0-9])": "pins a model version",
@@ -51,7 +51,7 @@ class Problem(Exception):
     pass
 
 
-def parse_frontmatter(text: str, rel: str) -> tuple[dict[str, str], int]:
+def parse_frontmatter(text: str) -> tuple[dict[str, str], int]:
     """Return (frontmatter, body_start_line). Minimal YAML: scalars and folded blocks."""
     lines = text.split("\n")
     if not lines or lines[0].strip() != "---":
@@ -90,34 +90,42 @@ def parse_frontmatter(text: str, rel: str) -> tuple[dict[str, str], int]:
     return data, end + 1
 
 
-def check(skill_dir: Path) -> list[str]:
-    rel = skill_dir.name
+def check(directory: Path, filename: str, required: tuple[str, ...],
+          optional: tuple[str, ...], kind: str) -> list[str]:
+    rel = f"{kind}/{directory.name}"
     problems: list[str] = []
-    path = skill_dir / "SKILL.md"
+    path = directory / filename
 
     if not path.exists():
-        return [f"{rel}: no SKILL.md"]
+        return [f"{rel}: no {filename}"]
 
     text = path.read_text(encoding="utf-8")
 
     try:
-        fm, body_start = parse_frontmatter(text, rel)
+        fm, body_start = parse_frontmatter(text)
     except Problem as exc:
         return [f"{rel}: {exc}"]
 
-    for required in REQUIRED_KEYS:
-        if not fm.get(required):
-            problems.append(f"{rel}: frontmatter is missing '{required}'")
+    for field in required:
+        if not fm.get(field):
+            problems.append(f"{rel}: frontmatter is missing '{field}'")
 
-    unknown = set(fm) - set(REQUIRED_KEYS) - set(OPTIONAL_KEYS)
+    unknown = set(fm) - set(required) - set(optional)
     if unknown:
         problems.append(f"{rel}: unknown frontmatter keys: {', '.join(sorted(unknown))}")
 
     name = fm.get("name", "")
-    if name and name != rel:
+    if name and name != directory.name:
         problems.append(f"{rel}: frontmatter name is {name!r}, must match directory name")
     if name and not re.fullmatch(r"[a-z][a-z0-9]*(-[a-z0-9]+)*", name):
         problems.append(f"{rel}: name must be kebab-case")
+
+    if "access" in required:
+        access = fm.get("access", "")
+        if access and access not in ACCESS_VALUES:
+            problems.append(
+                f"{rel}: access is {access!r}, must be one of {', '.join(ACCESS_VALUES)}"
+            )
 
     description = fm.get("description", "")
     words = len(description.split())
@@ -127,10 +135,11 @@ def check(skill_dir: Path) -> list[str]:
                 f"{rel}: description is {words} words (max {MAX_DESCRIPTION_WORDS}) — "
                 "it is a trigger, not a summary"
             )
-        if not re.search(r"\buse\b|\bwhen\b", description, re.I):
+        trigger = r"\buse\b|\bwhen\b" if kind == "skills" else r"\bdispatch\b|\bwhen\b"
+        if not re.search(trigger, description, re.I):
             problems.append(
-                f"{rel}: description should state when to use the skill "
-                "(e.g. 'Use when …') so a harness can match on it"
+                f"{rel}: description should state when this applies so a harness "
+                "can match on it"
             )
 
     body = "\n".join(text.split("\n")[body_start:])
@@ -146,6 +155,14 @@ def check(skill_dir: Path) -> list[str]:
         problems.append(f"{rel}: body is empty")
     elif not body_lines[0].startswith("# "):
         problems.append(f"{rel}: body must open with a level-1 heading")
+
+    if kind == "roles":
+        for heading in ("You may not",):
+            if heading.lower() not in body.lower():
+                problems.append(
+                    f"{rel}: charter has no '{heading}' section — a role without "
+                    "boundaries collapses into doing the whole thing"
+                )
 
     in_fence = False
     for i, line in enumerate(body_lines, start=body_start + 1):
@@ -164,37 +181,56 @@ def check(skill_dir: Path) -> list[str]:
                 )
 
     for target in re.findall(r"\]\((\.\.?/[^)#]+)", body):
-        if not (skill_dir / target).resolve().exists():
+        if not (directory / target).resolve().exists():
             problems.append(f"{rel}: broken relative link to {target}")
 
     return problems
 
 
-def main(argv: list[str]) -> int:
-    if not SKILLS.is_dir():
-        print(f"no skills directory at {SKILLS}", file=sys.stderr)
-        return 2
+def dirs_in(root: Path) -> list[Path]:
+    if not root.is_dir():
+        return []
+    return sorted(d for d in root.iterdir() if d.is_dir() and not d.name.startswith("."))
 
-    wanted = set(argv[1:])
-    dirs = sorted(d for d in SKILLS.iterdir() if d.is_dir() and not d.name.startswith("."))
-    if wanted:
-        dirs = [d for d in dirs if d.name in wanted]
-        missing = wanted - {d.name for d in dirs}
+
+def main(argv: list[str]) -> int:
+    args = [a for a in argv[1:] if not a.startswith("--")]
+    flags = {a for a in argv[1:] if a.startswith("--")}
+
+    targets: list[tuple[Path, str, tuple[str, ...], tuple[str, ...], str]] = []
+    if "--roles-only" not in flags:
+        for d in dirs_in(SKILLS):
+            targets.append((d, "SKILL.md", ("name", "description"),
+                            ("when_to_use", "version"), "skills"))
+    if "--skills-only" not in flags:
+        for d in dirs_in(ROLES):
+            targets.append((d, "ROLE.md", ("name", "description", "access"),
+                            ("model", "effort"), "roles"))
+
+    if args:
+        targets = [t for t in targets if t[0].name in args]
+        missing = set(args) - {t[0].name for t in targets}
         if missing:
-            print(f"no such skill: {', '.join(sorted(missing))}", file=sys.stderr)
+            print(f"no such skill or role: {', '.join(sorted(missing))}", file=sys.stderr)
             return 2
 
-    all_problems: list[str] = []
-    for d in dirs:
-        all_problems.extend(check(d))
+    if not targets:
+        print("nothing to validate", file=sys.stderr)
+        return 2
 
-    if all_problems:
-        for p in all_problems:
+    problems: list[str] = []
+    for directory, filename, required, optional, kind in targets:
+        problems.extend(check(directory, filename, required, optional, kind))
+
+    if problems:
+        for p in problems:
             print(f"FAIL {p}")
-        print(f"\n{len(all_problems)} problem(s) across {len(dirs)} skill(s)")
+        print(f"\n{len(problems)} problem(s) across {len(targets)} file(s)")
         return 1
 
-    print(f"OK  {len(dirs)} skill(s) validated")
+    skills = sum(1 for t in targets if t[4] == "skills")
+    roles = sum(1 for t in targets if t[4] == "roles")
+    print(f"OK  {skills} skill(s) and {roles} role(s) validated")
     return 0
 
 

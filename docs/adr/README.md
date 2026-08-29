@@ -31,3 +31,5 @@ record.
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
 | [0002](0002-harness-neutral-skills.md) | Skills are harness-neutral Markdown | Accepted |
 | [0003](0003-generated-harness-directories.md) | Harness directories are generated, not authored | Accepted |
+| [0004](0004-role-based-delivery-pipeline.md) | Delivery runs through roles with gates, and a written fast path | Accepted |
+| [0005](0005-github-issues-as-the-unit-of-work.md) | GitHub issues are the unit of work, and close only with evidence | Accepted |

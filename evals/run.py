@@ -16,6 +16,7 @@ evals/outputs/<case-id>.txt.
 Usage:
     ./evals/run.py                        # score every case with a recording
     ./evals/run.py --skill review-code    # only that skill's cases
+    ./evals/run.py --role qa-engineer     # only that role's cases
     ./evals/run.py --emit ./prompts       # write prompt files to run
     ./evals/run.py --strict               # missing recordings fail (CI)
 """
@@ -44,12 +45,14 @@ ROOT = Path(__file__).resolve().parent.parent
 CASES = ROOT / "evals" / "cases"
 OUTPUTS = ROOT / "evals" / "outputs"
 SKILLS = ROOT / "skills"
+ROLES = ROOT / "roles"
 
 
 @dataclass
 class Case:
     id: str
-    skill: str
+    subject: str
+    kind: str  # "skill" or "role"
     prompt: str
     rationale: str = ""
     expect_contains: list[str] = field(default_factory=list)
@@ -59,16 +62,27 @@ class Case:
     @classmethod
     def load(cls, path: Path) -> "Case":
         data = tomllib.loads(path.read_text(encoding="utf-8"))
-        missing = {"skill", "prompt"} - set(data)
-        if missing:
-            raise ValueError(f"{path.name}: missing key(s): {', '.join(sorted(missing))}")
-        if not (SKILLS / data["skill"] / "SKILL.md").exists():
-            raise ValueError(f"{path.name}: references unknown skill {data['skill']!r}")
+
+        if ("skill" in data) == ("role" in data):
+            raise ValueError(
+                f"{path.name}: set exactly one of 'skill' or 'role' — a case tests one thing"
+            )
+        if "prompt" not in data:
+            raise ValueError(f"{path.name}: missing key: prompt")
+
+        if "skill" in data:
+            kind, subject, target = "skill", data["skill"], SKILLS / data["skill"] / "SKILL.md"
+        else:
+            kind, subject, target = "role", data["role"], ROLES / data["role"] / "ROLE.md"
+        if not target.exists():
+            raise ValueError(f"{path.name}: references unknown {kind} {subject!r}")
+
         if not any(k in data for k in ("expect_contains", "expect_absent", "expect_matches")):
             raise ValueError(f"{path.name}: has no assertions — it cannot fail, so it is not a test")
         return cls(
             id=path.stem,
-            skill=data["skill"],
+            subject=subject,
+            kind=kind,
             prompt=data["prompt"].strip(),
             rationale=data.get("rationale", "").strip(),
             expect_contains=data.get("expect_contains", []),
@@ -92,11 +106,11 @@ class Case:
         return failures
 
 
-def load_cases(skill: str | None) -> list[Case]:
+def load_cases(subject: str | None) -> list[Case]:
     if not CASES.is_dir():
         return []
     cases = [Case.load(p) for p in sorted(CASES.glob("*.toml"))]
-    return [c for c in cases if skill is None or c.skill == skill]
+    return [c for c in cases if subject is None or c.subject == subject]
 
 
 def emit(cases: list[Case], dest: Path) -> int:
@@ -104,9 +118,9 @@ def emit(cases: list[Case], dest: Path) -> int:
     for case in cases:
         body = (
             f"# Eval case: {case.id}\n"
-            f"# Skill under test: skills/{case.skill}/SKILL.md\n"
+            f"# Under test: {'skills/' + case.subject + '/SKILL.md' if case.kind == 'skill' else 'roles/' + case.subject + '/ROLE.md'}\n"
             f"#\n"
-            f"# Read the skill above and docs/house-rules.md, then respond to the task.\n"
+            f"# Read the file above and docs/house-rules.md, then respond to the task.\n"
             f"# Save your response to evals/outputs/{case.id}.txt and run ./evals/run.py\n\n"
             f"{case.prompt}\n"
         )
@@ -129,14 +143,14 @@ def check(cases: list[Case], strict: bool) -> int:
         failures = case.score(recording.read_text(encoding="utf-8"))
         if failures:
             failed += 1
-            print(f"FAIL {case.id}  [{case.skill}]")
+            print(f"FAIL {case.id}  [{case.kind}: {case.subject}]")
             for f in failures:
                 print(f"       {f}")
             if case.rationale:
                 print(f"       why this case exists: {case.rationale}")
         else:
             passed += 1
-            print(f"PASS {case.id}  [{case.skill}]")
+            print(f"PASS {case.id}  [{case.kind}: {case.subject}]")
 
     print(f"\n{passed} passed, {failed} failed, {skipped} without a recording")
 
@@ -150,19 +164,20 @@ def check(cases: list[Case], strict: bool) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--skill", help="only cases for this skill")
+    ap.add_argument("--subject", "--skill", "--role", dest="subject",
+                    help="only cases for this skill or role")
     ap.add_argument("--emit", metavar="DIR", type=Path, help="write prompt files instead of scoring")
     ap.add_argument("--strict", action="store_true", help="fail if any case lacks a recording")
     args = ap.parse_args()
 
     try:
-        cases = load_cases(args.skill)
+        cases = load_cases(args.subject)
     except ValueError as exc:
         print(f"invalid case: {exc}", file=sys.stderr)
         return 2
 
     if not cases:
-        print("no cases found" + (f" for skill {args.skill!r}" if args.skill else ""))
+        print("no cases found" + (f" for {args.subject!r}" if args.subject else ""))
         return 0 if not args.strict else 1
 
     OUTPUTS.mkdir(exist_ok=True)

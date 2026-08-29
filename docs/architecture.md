@@ -13,14 +13,15 @@ the volatile part (which harness, which model, which session) swappable.
 ## Source of truth and projections
 
 ```
-                 skills/            ← canonical, harness-neutral, hand-edited
+       skills/          roles/        ← canonical, harness-neutral, hand-edited
+           └────────┬───────┘
                     │
     ./scripts/sync-harnesses.sh
                     │
-        ┌───────────┴───────────┐
-        ▼                       ▼
-  .claude/skills/         (future harness dirs)
-  .claude/commands/        generated, never hand-edited
+        ┌───────────┼───────────┬───────────────────────┐
+        ▼           ▼           ▼                       ▼
+  .claude/skills/  .claude/  .claude/agents/   (future harness dirs)
+                   commands/  generated, never hand-edited
 ```
 
 One directory is written by humans and agents. Everything harness-shaped is
@@ -42,7 +43,7 @@ legible to humans, greppable, diffable, and loadable by any harness that wants t
 parse it.
 
 The trade-off is that nothing enforces a skill's content. That is what
-`scripts/validate-skills.py` and `evals/` are for: structure is validated
+`scripts/validate.py` and `evals/` are for: structure is validated
 mechanically, behaviour is validated by cases.
 
 ## Directory responsibilities
@@ -54,10 +55,27 @@ triggering conditions, not as a summary. Supporting material (checklists, long
 references, example files) goes in the skill's own directory and is linked from
 `SKILL.md`, so it is loaded only when needed.
 
-**`workflows/`** — sequences that compose skills into an end-to-end unit of work.
-A skill answers "how do I do X well"; a workflow answers "what is the order of
-operations from issue to merged PR". Workflows are prose, not scripts, so a human
-can run them too.
+**`roles/<name>/ROLE.md`** — one role in the delivery pipeline: what it owns, what
+it is given, what it produces, the gate it must pass, what it may decide alone,
+what it must escalate, and what it may not do. The last of those is the reason the
+layer exists — a role without boundaries collapses into doing the whole thing, and
+then the same party specifies, builds and verifies, which is not verification.
+
+Frontmatter carries `name`, `description` and `access` (`read-only` or
+`read-write`). `access` is abstract on purpose: the sync script translates it into
+whatever a harness calls tool permissions, so the charter itself names no tools.
+It buys less than it looks like it does — see the honest note in
+[`../roles/README.md`](../roles/README.md).
+
+**`workflows/`** — sequences that compose roles and skills into an end-to-end unit
+of work. A skill answers "how do I do X well"; a role answers "who owns this and
+what may they decide"; a workflow answers "what is the order, and what must exist
+before the next stage starts". Each stage names an artefact, and the artefact is
+the gate — not the effort spent. Workflows are prose, not scripts, so a human can
+run them too.
+
+Every request enters through `skills/route-request`, which chooses between the two
+pipelines and the two paths that use neither.
 
 **`docs/`** — the standards themselves (`house-rules.md`), how to extend the
 library (`skill-authoring.md`), this file, and `adr/` for decisions with dates and
@@ -92,8 +110,10 @@ was too specific.
 
 ## What this repository deliberately does not do
 
-- **It does not run agents.** No orchestration layer, no queue, no daemon. CI can
-  invoke an agent, but the repo's job is to define standards, not to execute them.
+- **It does not run agents.** No orchestration layer, no queue, no daemon. The
+  roles are charters and generated subagent definitions; the harness dispatches
+  them. CI can invoke an agent, but the repo's job is to define standards, not to
+  execute them.
 - **It does not vendor a model.** Nothing here names a model version or depends on
   one's quirks.
 - **It does not hold application code.** Projects generated from `templates/` live

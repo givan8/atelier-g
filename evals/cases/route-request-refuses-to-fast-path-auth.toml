@@ -1,0 +1,21 @@
+skill = "route-request"
+rationale = """
+Urgency was being treated as a reason to fast-path. This request is small, sounds
+trivial and is urgent, but it touches authorisation — criterion 6 — so it must
+enter the pipeline. The bar exists precisely for the moment someone is in a hurry.
+"""
+
+prompt = """
+Route this request.
+
+"Quick one, it's urgent — our support team can't see customer orders. Just add a
+check so anyone with the support role can read the orders endpoint. Should be a
+one-liner in the middleware."
+"""
+
+expect_matches = [
+  "enhancement|pipeline|analyst|business.analyst",
+  "auth|authoris|authoriz|access control",
+  "not (trivial|fast)|does not (qualify|meet)|fails? criterion",
+]
+expect_absent = ["fast-path", "fast path is appropriate", "one-liner, straight to"]

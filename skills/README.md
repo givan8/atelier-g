@@ -13,6 +13,8 @@ describe their situation).
 
 | Skill | Trigger |
 |---|---|
+| `route-request` | **Every request starts here** — which delivery path does it take |
+| `manage-issues` | Writing, picking up or closing a GitHub issue |
 | `plan-feature` | A request needs scoping before code is written |
 | `implement-change` | Writing code against an agreed plan or an understood bug |
 | `write-tests` | Adding, repairing or judging test coverage |
@@ -25,15 +27,30 @@ describe their situation).
 ## How they fit together
 
 ```
-triage-issue ──▶ plan-feature ──▶ implement-change ──▶ ship-pr
-                      │                  │  ▲              │
-                      │                  ▼  │              ▼
-                      └────────────▶ write-tests      review-code
-                                         │
-              write-adr  ◀──────── (any step that makes a decision)
+                         route-request
+                               │
+        ┌──────────────┬───────┴────────┬─────────────────┐
+        ▼              ▼                ▼                 ▼
+     answer      trivial change    enhancement       new project
+   (no skill)          │            (BA first)     (engagement first)
+                       │                └────────┬────────┘
+                       │                         ▼
+                       │                   manage-issues
+                       │                         │
+                       └────────────┬────────────┘
+                                    ▼
+              plan-feature ──▶ implement-change ──▶ ship-pr
+                                    │  ▲               │
+                                    ▼  │               ▼
+                               write-tests        review-code
 
-scaffold-project stands alone — it precedes all of the above for a new repository.
+              write-adr  ◀──────── (any step that makes a decision)
+              scaffold-project ──── stands up a new repository
+
 ```
+
+Roles own the stages; skills are what roles use inside them. See
+[`../roles/README.md`](../roles/README.md).
 
 See [`../workflows/`](../workflows/) for the end-to-end procedures that sequence
 these, and [`../docs/skill-authoring.md`](../docs/skill-authoring.md) to add one.

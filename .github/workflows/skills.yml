@@ -15,8 +15,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate skill structure
-        run: ./scripts/validate-skills.py
+      - name: Validate skill and role structure
+        run: ./scripts/validate.py
 
       - name: Check generated harness directories are in sync
         run: ./scripts/sync-harnesses.sh --check

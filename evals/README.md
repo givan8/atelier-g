@@ -1,6 +1,6 @@
 # Evals
 
-Structure is checked by `scripts/validate-skills.py`. Behaviour is checked here.
+Structure is checked by `scripts/validate.py`. Behaviour is checked here.
 
 A case is a task plus assertions about what a correct response contains or avoids.
 The runner does not call a model: it emits prompts, and scores recorded responses.
@@ -12,9 +12,13 @@ response by hand — and it keeps this repository dependency-free.
 ```bash
 ./evals/run.py                      # score every case that has a recording
 ./evals/run.py --skill review-code  # one skill
+./evals/run.py --role qa-engineer   # one role
 ./evals/run.py --emit ./prompts     # write prompt files to run somewhere
 ./evals/run.py --strict             # missing recordings are failures (CI)
 ```
+
+On Python 3.10 and earlier, `pip install tomli` — the runner uses stdlib
+`tomllib` where it exists and says so plainly where it does not.
 
 The loop:
 
@@ -47,6 +51,24 @@ Review this diff:
 expect_contains = ["error", "swallow"]
 expect_absent   = ["looks good to me"]
 expect_matches  = ["blocking|should fix"]
+```
+
+A case tests **one** thing: set `skill = "..."` or `role = "..."`, never both.
+A role case names the charter it exercises and usually asserts a refusal — that
+the role escalated rather than deciding, or declined work belonging to another
+role:
+
+```toml
+# evals/cases/qa-engineer-does-not-fix-what-it-finds.toml
+role = "qa-engineer"
+rationale = "A tester that fixes becomes a developer, and then there is no tester."
+
+prompt = """
+You are acting as the qa-engineer... you find a one-character fix. What do you do?
+"""
+
+expect_matches = ["report|FAIL", "not fix|do not fix"]
+expect_absent  = ["I'll fix", "apply the fix"]
 ```
 
 - `expect_contains` / `expect_absent` — case-insensitive substrings

@@ -88,7 +88,7 @@ expect_absent = ["looks good to me"]
 Then:
 
 ```bash
-./scripts/validate-skills.py    # structure
+./scripts/validate.py    # structure
 ./evals/run.py --skill review-code
 ```
 
@@ -103,3 +103,56 @@ it is not testing your change.
   skill diff without a reason is unreviewable.
 - Deleting a skill is fine and often correct. Skills that no longer match how the
   shop works are worse than no skill, because they are followed anyway.
+
+---
+
+# Writing a role charter
+
+A role says *who owns a stage, what they may decide, and what they hand on*. Write
+one only when a stage needs an owner distinct from the stages either side of it —
+if the same party can reasonably do both, it is one role.
+
+## Structure
+
+```
+roles/<kebab-case-name>/ROLE.md
+```
+
+Frontmatter: `name` (matching the directory), `description` (when to **dispatch**
+this role — a harness matches on this text), and `access`:
+
+- `read-only` — may read, search and run commands, but cannot edit files
+- `read-write` — may edit files and run commands
+
+Name no tools. The sync script translates `access` into whatever each harness
+calls permissions, per [ADR-0002](adr/0002-harness-neutral-skills.md).
+
+## Body, in this order
+
+1. **What you own** — one or two sentences, and why the role is separate.
+2. **What you are given** — the artefact from the previous stage.
+3. **What you produce** — the artefact, with its shape shown.
+4. **Method** — how to do it well, as ordered steps.
+5. **Gate** — what must be true before the next stage starts. Falsifiable.
+6. **You may decide alone** — so the role does not escalate everything.
+7. **You must escalate** — and to whom: another role, or the user.
+8. **You may not** — required. `validate.py` fails a charter without it.
+
+## Why "You may not" is mandatory
+
+A role without boundaries collapses into doing the whole thing, and then the same
+party specifies, builds and verifies. That is not verification — it is one party
+agreeing with itself three times, which is the failure the role layer exists to
+prevent.
+
+Write the boundaries as the specific temptations of that role, not as generic
+caution. "Do not fix what you find" for QA. "Do not write the implementation and
+then review it" for the tech lead. "Do not change acceptance criteria to match
+what was built" for the analyst. Each of those is a thing that role will actually
+be tempted to do at 5pm on a Friday.
+
+## Testing a charter
+
+Same as a skill: an eval case in `evals/cases/` that would have failed before your
+change. Charter cases usually assert a refusal — that the role escalated rather
+than deciding, or declined work belonging to another role.

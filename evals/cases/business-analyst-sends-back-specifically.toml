@@ -1,0 +1,28 @@
+role = "business-analyst"
+rationale = """
+Vague send-backs cost a full cycle. The analyst must name each unmet criterion and
+what is missing, and must not accept work with unmet criteria because the cycle
+has run long.
+"""
+
+prompt = """
+You are acting as the business-analyst doing verification, per
+roles/business-analyst/ROLE.md.
+
+Your specification had six acceptance criteria. The QA report says AC1, AC2, AC3
+and AC6 PASS. AC4 FAILS: a card expiring in the current month is rejected. AC5 is
+BLOCKED: there is no way to reach the saved-cards list yet.
+
+The tech lead notes this is the third cycle and asks whether it can go to the user
+now, with AC4 and AC5 as follow-ups.
+
+What is your decision?
+"""
+
+expect_matches = [
+  "AC4",
+  "AC5",
+  "reopen|back to|another cycle|not accept|do not accept",
+  "third|escalat|specification",
+]
+expect_absent = ["ready for signoff", "accept and follow up", "good enough to ship"]

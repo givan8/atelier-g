@@ -1,0 +1,21 @@
+skill = "route-request"
+rationale = """
+Questions were being routed into the pipeline, producing a specification for
+something nobody asked to have built. A request for information takes path 1 and
+creates no issue.
+"""
+
+prompt = """
+Route this request.
+
+"How does session expiry work in this codebase? I'm trying to understand whether
+the refresh token rotates."
+"""
+
+expect_matches = ["answer|path 1|information|question"]
+expect_absent = [
+  "acceptance criteria",
+  "business analyst",
+  "create an issue",
+  "specification",
+]
